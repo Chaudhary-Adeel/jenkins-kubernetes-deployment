@@ -1,43 +1,40 @@
 pipeline {
-
-  environment {
-    dockerimagename = "chaudharyadeel/react-app"
-    dockerImage = ""
-    KUBECONFIG = credentials('kubeconfig-credential-id') // The credential ID for your Kubernetes config
-  }
-
-  agent any
-
-  stages {
-
-    stage('Checkout Source') {
-      steps {
-        git 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
-      }
+    environment {
+        dockerimagename = "chaudharyadeel/react-app"
+        dockerImage = ""
+        KUBECONFIG = credentials('kubeconfig-credential-id') // The credential ID for your Kubernetes config
     }
 
-    stage('Build image') {
-      steps{
-        script {
-          dockerImage = docker.build dockerimagename
-        }
-      }
-    }
-
-    stage('Pushing Image') {
-      environment {
-               registryCredential = 'docker-hub'
-           }
-      steps{
-        script {
-          docker.withRegistry( 'https://registry.hub.docker.com', registryCredential ) {
-            dockerImage.push("latest")
-          }
-        }
-      }
-    }
+    agent any
 
     stages {
+        stage('Checkout Source') {
+            steps {
+                git 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                script {
+                    dockerImage = docker.build dockerimagename
+                }
+            }
+        }
+
+        stage('Pushing Image') {
+            environment {
+                registryCredential = 'docker-hub'
+            }
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', registryCredential) {
+                        dockerImage.push("latest")
+                    }
+                }
+            }
+        }
+
         stage('Deploying React.js container to Kubernetes') {
             steps {
                 script {
@@ -49,7 +46,4 @@ pipeline {
             }
         }
     }
-
-  }
-
 }
