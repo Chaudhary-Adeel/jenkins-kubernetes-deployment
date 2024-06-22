@@ -39,9 +39,9 @@ pipeline {
             steps {
                 script {
                     // Apply the deployment configuration
-                    sh 'kubectl apply -f deployment.yaml --kubeconfig=$KUBECONFIG'
+                    bat 'kubectl apply -f deployment.yaml --kubeconfig=%KUBECONFIG%'
                     // Apply the service configuration
-                    sh 'kubectl apply -f service.yaml --kubeconfig=$KUBECONFIG'
+                    bat 'kubectl apply -f service.yaml --kubeconfig=%KUBECONFIG%'
                 }
             }
         }
