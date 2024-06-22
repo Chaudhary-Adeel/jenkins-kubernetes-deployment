@@ -14,10 +14,30 @@ pipeline {
             }
         }
 
-        stage('Build image') {
+        stage('SAST and Secrets Scanning with Snyk') {
             steps {
                 script {
-                    dockerImage = docker.build dockerimagename
+                    // Perform SAST and Secrets Scanning using Snyk
+                    sh 'snyk code test'
+                    sh 'snyk code test --severity-threshold=high'
+                    // Alternatively, you can use `snyk code test` for a more detailed analysis.
+                }
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                script {
+                    dockerImage = docker.build(dockerimagename, '--pull .')
+                }
+            }
+        }
+
+        stage('Container Scanning with Snyk') {
+            steps {
+                script {
+                    // Scan the Docker image using Snyk
+                    sh "snyk container test ${dockerimagename} --severity-threshold=high"
                 }
             }
         }
@@ -35,7 +55,7 @@ pipeline {
             }
         }
 
-        stage('Deploying React.js container to Kubernetes') {
+        stage('Deploying React.js Container to Kubernetes') {
             steps {
                 script {
                     // Apply the deployment configuration
@@ -55,7 +75,7 @@ pipeline {
                         contentType: 'APPLICATION_JSON',
                         url: 'http://127.0.0.1:1337/v0.1/scans',
                         requestBody: """{
-                            "urls": ["http://localhost:3000/"],
+                            "urls": ["http://your-deployed-app-url"],
                             "name": "React App DAST Scan",
                             "scope": null,
                             "application_logins": [],
