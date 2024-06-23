@@ -73,23 +73,17 @@ pipeline {
         stage('DAST Scanning') {
             steps {
                 script {
-                    // Trigger Burp Suite scan
+                    // Trigger Burp Suite scan with simplified payload
                     def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
                         acceptType: 'APPLICATION_JSON',
                         contentType: 'APPLICATION_JSON',
                         url: 'http://127.0.0.1:1337/v0.1/scan',
                         requestBody: """{
-                            "urls": ["http://localhost:3000/"],
-                            "name": "React App DAST Scan",
-                            "scope": null,
-                            "application_logins": [],
-                            "scan_configurations": [],
-                            "resource_pool": null,
-                            "scan_callback": null,
-                            "protocol_option": null
+                            "urls": ["http://localhost:3000/"]
                         }"""
 
-                    def scanId = readJSON text: burpSuiteScanResponse.content
+                    def scanResponse = readJSON text: burpSuiteScanResponse.content
+                    def scanId = scanResponse.id
                     echo "Burp Suite Scan initiated with ID: ${scanId}"
 
                     // Poll for scan completion
@@ -121,5 +115,6 @@ pipeline {
                 }
             }
         }
+        
     }
 }
