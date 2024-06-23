@@ -80,17 +80,16 @@ pipeline {
                 url: 'http://127.0.0.1:1337/v0.1/scan',
                 requestBody: '{"urls": ["http://localhost:3000/"]}'
 
-            if (burpSuiteScanResponse.status != 200) {
+            if (burpSuiteScanResponse.status != 201) {
                 error "Failed to trigger Burp Suite scan. HTTP status ${burpSuiteScanResponse.status}"
             }
 
-            def scanResponse
             def scanId
             def scanCompleted = false
 
             // Parse the response to extract scan ID
             if (burpSuiteScanResponse.content) {
-                scanResponse = new groovy.json.JsonSlurper().parseText(burpSuiteScanResponse.content)
+                def scanResponse = readJSON text: burpSuiteScanResponse.content
                 scanId = scanResponse.id
                 echo "Burp Suite Scan initiated with ID: ${scanId}"
             } else {
@@ -111,7 +110,7 @@ pipeline {
 
                 def scanStatus
                 if (scanStatusResponse.content) {
-                    scanStatus = new groovy.json.JsonSlurper().parseText(scanStatusResponse.content)
+                    scanStatus = readJSON text: scanStatusResponse.content
                     echo "Scan status: ${scanStatus.state}"
                     scanCompleted = (scanStatus.state == 'completed')
                 } else {
@@ -130,7 +129,7 @@ pipeline {
 
             def scanResults
             if (scanResultsResponse.content) {
-                scanResults = new groovy.json.JsonSlurper().parseText(scanResultsResponse.content)
+                scanResults = readJSON text: scanResultsResponse.content
                 echo "Scan results: ${scanResults}"
 
                 // Optionally fail the build if vulnerabilities are found
