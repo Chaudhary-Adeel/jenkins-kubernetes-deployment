@@ -74,7 +74,7 @@ pipeline {
             steps {
                 script {
                     def scanPayload = [
-                        urls: ["https://example.com"],  // Replace with the URLs you want to scan
+                        urls: ["http://localhost:3000/"],  // Replace with the URLs you want to scan
                         name: "MyScan",                // Optional: Name your scan
                         scope: [
                             include: [],               // Optional: Include specific scopes
@@ -83,8 +83,7 @@ pipeline {
                         application_logins: [],         // Optional: Add application logins if needed
                         scan_configurations: [],        // Optional: Add custom scan configurations
                         resource_pool: "default",       // Optional: Specify resource pool if applicable
-                        scan_callback: [               // Optional: Specify callback URL
-                            url: "http://callback.example.com"
+                        scan_callback: [
                         ],
                         protocol_option: "specified"    // Optional: Specify protocol option if applicable
                     ]
