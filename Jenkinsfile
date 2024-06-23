@@ -7,7 +7,7 @@ pipeline {
         BURP_BASE_URL = 'http://127.0.0.1:1337/v0.1'
     }
 
-    agent any
+    agent any {
 
     stages {
         stage('SAST and Secrets Scanning with Snyk') {
