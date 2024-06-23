@@ -69,12 +69,9 @@ pipeline {
                 }
             }
         }
-
         stage('DAST Scanning') {
             steps {
                 script {
-                    def jsonSlurper = new groovy.json.JsonSlurper()
-                    
                     // Trigger Burp Suite scan with simplified payload
                     def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
                         acceptType: 'APPLICATION_JSON',
@@ -82,12 +79,18 @@ pipeline {
                         url: 'http://127.0.0.1:1337/v0.1/scan',
                         requestBody: '{"urls": ["http://localhost:3000/"]}'
 
-                    def scanResponse = jsonSlurper.parseText(burpSuiteScanResponse.content)
-                    def scanId = scanResponse.id
-                    echo "Burp Suite Scan initiated with ID: ${scanId}"
+                    def scanResponse
+                    def scanId
+                    def scanCompleted = false
+
+                    // Parse the response to extract scan ID
+                    script {
+                        scanResponse = new groovy.json.JsonSlurper().parseText(burpSuiteScanResponse.content)
+                        scanId = scanResponse.id
+                        echo "Burp Suite Scan initiated with ID: ${scanId}"
+                    }
 
                     // Poll for scan completion
-                    def scanCompleted = false
                     while (!scanCompleted) {
                         sleep(time: 60, unit: 'SECONDS') // Wait for 1 minute before polling again
 
@@ -95,9 +98,12 @@ pipeline {
                             acceptType: 'APPLICATION_JSON',
                             url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
 
-                        def scanStatus = jsonSlurper.parseText(scanStatusResponse.content)
-                        echo "Scan status: ${scanStatus.state}"
-                        scanCompleted = (scanStatus.state == 'completed')
+                        def scanStatus
+                        script {
+                            scanStatus = new groovy.json.JsonSlurper().parseText(scanStatusResponse.content)
+                            echo "Scan status: ${scanStatus.state}"
+                            scanCompleted = (scanStatus.state == 'completed')
+                        }
                     }
 
                     // Fetch scan results
@@ -105,12 +111,15 @@ pipeline {
                         acceptType: 'APPLICATION_JSON',
                         url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
 
-                    def scanResults = jsonSlurper.parseText(scanResultsResponse.content)
-                    echo "Scan results: ${scanResults}"
+                    def scanResults
+                    script {
+                        scanResults = new groovy.json.JsonSlurper().parseText(scanResultsResponse.content)
+                        echo "Scan results: ${scanResults}"
 
-                    // Optionally fail the build if vulnerabilities are found
-                    if (scanResults.vulnerabilities.size() > 0) {
-                        error("DAST scan found vulnerabilities")
+                        // Optionally fail the build if vulnerabilities are found
+                        if (scanResults.vulnerabilities.size() > 0) {
+                            error("DAST scan found vulnerabilities")
+                        }
                     }
                 }
             }
