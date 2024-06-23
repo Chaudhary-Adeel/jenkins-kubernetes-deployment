@@ -70,19 +70,9 @@ pipeline {
                 script {
                     def scanPayload = [
                         urls: ["http://localhost:3000/"],  // Replace with the URLs you want to scan
-                        name: "MyScan",                // Optional: Name your scan
-                        scope: [
-                            include: [],               // Optional: Include specific scopes
-                            exclude: []                // Optional: Exclude specific scopes
-                        ],
-                        application_logins: [],         // Optional: Add application logins if needed
-                        scan_configurations: [],        // Optional: Add custom scan configurations
-                        resource_pool: "default",       // Optional: Specify resource pool if applicable
-                        scan_callback: [],
-                        protocol_option: "specified"    // Optional: Specify protocol option if applicable
                     ]
-                    
                     def jsonPayload = new groovy.json.JsonOutput().toJson(scanPayload)
+                    echo "Request Payload:: --> ${jsonPayload}"
                     
                     def scanResponse = httpRequest(
                         acceptType: 'APPLICATION_JSON',
