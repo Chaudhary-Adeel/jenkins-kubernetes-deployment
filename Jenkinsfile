@@ -73,16 +73,16 @@ pipeline {
         stage('DAST Scanning') {
             steps {
                 script {
+                    def jsonSlurper = new groovy.json.JsonSlurper()
+                    
                     // Trigger Burp Suite scan with simplified payload
                     def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
                         acceptType: 'APPLICATION_JSON',
                         contentType: 'APPLICATION_JSON',
                         url: 'http://127.0.0.1:1337/v0.1/scan',
-                        requestBody: """{
-                            "urls": ["http://localhost:3000/"]
-                        }"""
+                        requestBody: '{"urls": ["http://localhost:3000/"]}'
 
-                    def scanResponse = readJSON text: burpSuiteScanResponse.content
+                    def scanResponse = jsonSlurper.parseText(burpSuiteScanResponse.content)
                     def scanId = scanResponse.id
                     echo "Burp Suite Scan initiated with ID: ${scanId}"
 
@@ -95,7 +95,7 @@ pipeline {
                             acceptType: 'APPLICATION_JSON',
                             url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
 
-                        def scanStatus = readJSON text: scanStatusResponse.content
+                        def scanStatus = jsonSlurper.parseText(scanStatusResponse.content)
                         echo "Scan status: ${scanStatus.state}"
                         scanCompleted = (scanStatus.state == 'completed')
                     }
@@ -105,7 +105,7 @@ pipeline {
                         acceptType: 'APPLICATION_JSON',
                         url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
 
-                    def scanResults = readJSON text: scanResultsResponse.content
+                    def scanResults = jsonSlurper.parseText(scanResultsResponse.content)
                     echo "Scan results: ${scanResults}"
 
                     // Optionally fail the build if vulnerabilities are found
