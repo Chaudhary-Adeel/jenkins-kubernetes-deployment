@@ -77,7 +77,7 @@ pipeline {
                     def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
                         acceptType: 'APPLICATION_JSON',
                         contentType: 'APPLICATION_JSON',
-                        url: 'http://127.0.0.1:1337/v0.1/scans',
+                        url: 'http://127.0.0.1:1337/v0.1/scan',
                         requestBody: """{
                             "urls": ["http://localhost:3000/"],
                             "name": "React App DAST Scan",
@@ -109,7 +109,7 @@ pipeline {
                     // Fetch scan results
                     def scanResultsResponse = httpRequest httpMode: 'GET',
                         acceptType: 'APPLICATION_JSON',
-                        url: "http://127.0.0.1:1337/v0.1/scans/${scanId}/report"
+                        url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
 
                     def scanResults = readJSON text: scanResultsResponse.content
                     echo "Scan results: ${scanResults}"
