@@ -75,7 +75,7 @@ pipeline {
                     echo "Request Payload:: --> ${jsonPayload}"
                     
                     // Run Python script for DAST scan
-                    bat "python ${WORKSPACE}\\dast_scan.py '${jsonPayload}'"
+                    bat """python "${WORKSPACE}\\dast_scan.py" '${jsonPayload}'"""
                 }
             }
         }
