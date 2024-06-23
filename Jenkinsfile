@@ -7,7 +7,7 @@ pipeline {
         BURP_BASE_URL = 'http://127.0.0.1:1337/v0.1'
     }
 
-    agent any {
+    agent any
 
     stages {
         stage('SAST and Secrets Scanning with Snyk') {
@@ -64,20 +64,6 @@ pipeline {
                 }
             }
         }
-
-        pipeline {
-    environment {
-        dockerimagename = "chaudharyadeel/react-app"
-        dockerImage = ""
-        KUBECONFIG = credentials('kubeconfig-credential-id') // The credential ID for your Kubernetes config
-        SNYK_TOKEN = credentials('snyk-token-id') // The credential ID for your Snyk API token
-        BURP_BASE_URL = 'http://127.0.0.1:1337/v0.1'
-    }
-
-    agent any
-
-    stages {
-        // Previous stages omitted for brevity
 
         stage('DAST Scanning') {
             steps {
@@ -138,9 +124,6 @@ pipeline {
                 }
             }
         }
-    }
-}
-
 
     }
 }
