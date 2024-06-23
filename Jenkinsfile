@@ -60,10 +60,12 @@ pipeline {
         stage('Deploying React.js Container to Kubernetes') {
             steps {
                 script {
-                    // Apply the deployment configuration
-                    bat 'kubectl apply -f deployment.yaml --kubeconfig=%KUBECONFIG%'
-                    // Apply the service configuration
-                    bat 'kubectl apply -f service.yaml --kubeconfig=%KUBECONFIG%'
+                    // Set the KUBECONFIG environment variable within the bat command
+                    bat '''
+                        set KUBECONFIG=%KUBECONFIG%
+                        kubectl apply -f deployment.yaml
+                        kubectl apply -f service.yaml
+                    '''
                 }
             }
         }
