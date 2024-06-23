@@ -68,8 +68,14 @@ pipeline {
         stage('DAST Scanning') {
             steps {
                 script {
-                
-                bat '''python dast_scan.py'''
+                    def scanPayload = [
+                        urls: ["http://localhost:3000/"],  // Replace with the URLs you want to scan
+                    ]
+                    def jsonPayload = new groovy.json.JsonOutput().toJson(scanPayload)
+                    echo "Request Payload:: --> ${jsonPayload}"
+                    
+                    // Run Python script for DAST scan
+                    bat "python ${WORKSPACE}\\dast_scan.py '${jsonPayload}'"
                 }
             }
         }
