@@ -9,20 +9,20 @@ pipeline {
     agent any
 
     stages {
-        // stage('Checkout Source') {
-        //     steps {
-        //         git branch: 'main', url: 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
-        //     }
-        // }
+        stage('Checkout Source') {
+            steps {
+                git branch: 'main', url: 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
+            }
+        }
 
         stage('SAST and Secrets Scanning with Snyk') {
             steps {
                 script {
                     // Authenticate Snyk
-                    sh 'snyk auth ${SNYK_TOKEN}'
+                    bat 'snyk auth %SNYK_TOKEN%'
                     
                     // Perform SAST and Secrets Scanning using Snyk
-                    sh 'snyk code test --severity-threshold=high || true'
+                    bat 'snyk code test --severity-threshold=high || exit 0'
                 }
             }
         }
@@ -39,7 +39,7 @@ pipeline {
             steps {
                 script {
                     // Scan the Docker image using Snyk
-                    sh "snyk container test ${dockerimagename} --severity-threshold=high || true"
+                    bat "snyk container test ${dockerimagename} --severity-threshold=high || exit 0"
                 }
             }
         }
