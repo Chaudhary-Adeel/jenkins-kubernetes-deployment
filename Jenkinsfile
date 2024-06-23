@@ -68,62 +68,10 @@ pipeline {
         stage('DAST Scanning') {
             steps {
                 script {
-                    def scanPayload = [
-                        urls: ["http://localhost:3000/"],  // Replace with the URLs you want to scan
-                    ]
-                    def jsonPayload = new groovy.json.JsonOutput().toJson(scanPayload)
-                    echo "Request Payload:: --> ${jsonPayload}"
-                    
-                    // Initiate the scan using curl
-                    def curlCommand = """
-                        curl -X POST -H 'Content-Type: application/json' -d '${jsonPayload}' ${env.BURP_BASE_URL}/scan
-                    """
-                    def response = bat(returnStdout: true, script: curlCommand).trim()
-                    
-                    // Extract task ID from response
-                    def taskId = response.readLines().find { it.startsWith('Location: ') }?.split('/')[-1]?.trim()
-                    if (!taskId) {
-                        error "Failed to trigger Burp Suite scan. Response: ${response}"
-                    }
-                    
-                    echo "Scan successfully started. Task ID: ${taskId}"
-                    
-                    // Polling to check scan status
-                    def scanStatus = 'initializing'
-                    timeout(time: 30, unit: 'MINUTES') {
-                        def maxAttempts = 60  // Example: Poll for up to 30 minutes with 30-second interval
-                        def attempts = 0
-                        
-                        while (scanStatus != 'succeeded' && scanStatus != 'failed' && attempts < maxAttempts) {
-                            def progressCommand = "curl -s -X GET -H 'Accept: application/json' ${env.BURP_BASE_URL}/scan/${taskId}"
-                            def progressResponse = bat(returnStdout: true, script: progressCommand).trim()
-                            
-                            if (progressResponse) {
-                                def progressJson = new groovy.json.JsonSlurper().parseText(progressResponse)
-                                scanStatus = progressJson?.scan_status
-                                
-                                echo "Scan Status: ${scanStatus}"
-                                
-                                if (scanStatus == 'succeeded' || scanStatus == 'failed') {
-                                    break
-                                }
-                            } else {
-                                error "Failed to fetch scan progress. Response: ${progressResponse}"
-                            }
-                            
-                            sleep(time: 30, unit: 'SECONDS')  // Wait before the next poll
-                            attempts++
-                        }
-                    }
-                    
-                    if (scanStatus != 'succeeded') {
-                        error "Burp Suite scan did not complete successfully. Final status: ${scanStatus}"
-                    }
-                    
-                    echo "Burp Suite scan completed successfully!"
+                
+                bat '''python dast_scan.py'''
                 }
             }
         }
-
     }
 }
