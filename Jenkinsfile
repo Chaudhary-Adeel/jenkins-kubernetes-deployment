@@ -10,12 +10,6 @@ pipeline {
     agent any
 
     stages {
-        // stage('Checkout Source') {
-        //     steps {
-        //         git branch: 'main', url: 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
-        //     }
-        // }
-
         stage('SAST and Secrets Scanning with Snyk') {
             steps {
                 script {
@@ -70,6 +64,7 @@ pipeline {
                 }
             }
         }
+
         stage('DAST Scanning') {
             steps {
                 script {
@@ -83,16 +78,17 @@ pipeline {
                         application_logins: [],         // Optional: Add application logins if needed
                         scan_configurations: [],        // Optional: Add custom scan configurations
                         resource_pool: "default",       // Optional: Specify resource pool if applicable
-                        scan_callback: [
-                        ],
+                        scan_callback: [],
                         protocol_option: "specified"    // Optional: Specify protocol option if applicable
                     ]
+                    
+                    def jsonPayload = new groovy.json.JsonOutput().toJson(scanPayload)
                     
                     def scanResponse = httpRequest(
                         acceptType: 'APPLICATION_JSON',
                         contentType: 'APPLICATION_JSON',
                         httpMode: 'POST',
-                        requestBody: jsonEncode(scanPayload),
+                        requestBody: jsonPayload,
                         url: "${env.BURP_BASE_URL}/scan"
                     )
                     
@@ -145,6 +141,5 @@ pipeline {
                 }
             }
         }
-        
     }
 }
