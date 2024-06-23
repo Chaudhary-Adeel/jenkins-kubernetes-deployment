@@ -9,11 +9,11 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout Source') {
-            steps {
-                git branch: 'main', url: 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
-            }
-        }
+        // stage('Checkout Source') {
+        //     steps {
+        //         git branch: 'main', url: 'https://github.com/chaudhary-adeel/jenkins-kubernetes-deployment.git'
+        //     }
+        // }
 
         stage('SAST and Secrets Scanning with Snyk') {
             steps {
