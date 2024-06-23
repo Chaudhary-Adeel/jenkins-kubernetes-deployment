@@ -77,7 +77,7 @@ pipeline {
                         contentType: 'APPLICATION_JSON',
                         url: 'http://127.0.0.1:1337/v0.1/scans',
                         requestBody: """{
-                            "urls": ["http://your-deployed-app-url"],
+                            "urls": ["http://localhost:3000/"],
                             "name": "React App DAST Scan",
                             "scope": null,
                             "application_logins": [],
