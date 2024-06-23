@@ -64,7 +64,6 @@ pipeline {
                 }
             }
         }
-
 stage('DAST Scanning') {
     steps {
         script {
@@ -126,6 +125,7 @@ curl -X POST -H "Content-Type: application/json" -H "Accept: application/json" -
         }
     }
 }
+
 
     }
 }
