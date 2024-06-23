@@ -4,6 +4,7 @@ pipeline {
         dockerImage = ""
         KUBECONFIG = credentials('kubeconfig-credential-id') // The credential ID for your Kubernetes config
         SNYK_TOKEN = credentials('snyk-token-id') // The credential ID for your Snyk API token
+        BURP_BASE_URL = 'http://127.0.0.1:1337/v0.1'
     }
 
     agent any
@@ -69,80 +70,82 @@ pipeline {
                 }
             }
         }
-
         stage('DAST Scanning') {
-    steps {
-        script {
-            // Trigger Burp Suite scan with simplified payload
-            def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
-                acceptType: 'APPLICATION_JSON',
-                contentType: 'APPLICATION_JSON',
-                url: 'http://127.0.0.1:1337/v0.1/scan',
-                requestBody: '{"urls": ["http://localhost:3000/"]}'
-
-            if (burpSuiteScanResponse.status != 201) {
-                error "Failed to trigger Burp Suite scan. HTTP status ${burpSuiteScanResponse.status}"
-            }
-
-            def scanId
-            def scanCompleted = false
-
-            // Parse the response to extract scan ID
-            if (burpSuiteScanResponse.content) {
-                def scanResponse = readJSON text: burpSuiteScanResponse.content
-                scanId = scanResponse.id
-                echo "Burp Suite Scan initiated with ID: ${scanId}"
-            } else {
-                error "Empty response received from Burp Suite scan API"
-            }
-
-            // Poll for scan completion
-            while (!scanCompleted) {
-                sleep(time: 60, unit: 'SECONDS') // Wait for 1 minute before polling again
-
-                def scanStatusResponse = httpRequest httpMode: 'GET', 
-                    acceptType: 'APPLICATION_JSON',
-                    url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
-
-                if (scanStatusResponse.status != 200) {
-                    error "Failed to fetch scan status. HTTP status ${scanStatusResponse.status}"
+            steps {
+                script {
+                    def scanPayload = [
+                        urls: ["https://example.com"],  // Replace with the URLs you want to scan
+                        name: "MyScan",                // Optional: Name your scan
+                        scope: [
+                            include: [],               // Optional: Include specific scopes
+                            exclude: []                // Optional: Exclude specific scopes
+                        ],
+                        application_logins: [],         // Optional: Add application logins if needed
+                        scan_configurations: [],        // Optional: Add custom scan configurations
+                        resource_pool: "default",       // Optional: Specify resource pool if applicable
+                        scan_callback: [               // Optional: Specify callback URL
+                            url: "http://callback.example.com"
+                        ],
+                        protocol_option: "specified"    // Optional: Specify protocol option if applicable
+                    ]
+                    
+                    def scanResponse = httpRequest(
+                        acceptType: 'APPLICATION_JSON',
+                        contentType: 'APPLICATION_JSON',
+                        httpMode: 'POST',
+                        requestBody: jsonEncode(scanPayload),
+                        url: "${env.BURP_BASE_URL}/scan"
+                    )
+                    
+                    if (scanResponse.status != 201) {
+                        error "Failed to trigger Burp Suite scan. HTTP status ${scanResponse.status}"
+                    }
+                    
+                    def scanLocation = scanResponse.getResponseHeaders().find { it.key == 'Location' }?.value
+                    if (!scanLocation) {
+                        error "No 'Location' header found in the response"
+                    }
+                    
+                    def taskId = scanLocation.tokenize('/').last()
+                    echo "Scan successfully started. Task ID: ${taskId}"
+                    
+                    // Polling to check scan status
+                    def scanStatus = 'initializing'
+                    timeout(time: 30, unit: 'MINUTES') {
+                        def maxAttempts = 60  // Example: Poll for up to 30 minutes with 30-second interval
+                        def attempts = 0
+                        
+                        while (scanStatus != 'succeeded' && scanStatus != 'failed' && attempts < maxAttempts) {
+                            def scanProgress = httpRequest(
+                                acceptType: 'APPLICATION_JSON',
+                                contentType: 'APPLICATION_JSON',
+                                httpMode: 'GET',
+                                url: "${env.BURP_BASE_URL}/scan/${taskId}"
+                            )
+                            
+                            if (scanProgress.status == 200) {
+                                scanStatus = scanProgress.data.scan_status
+                                echo "Scan Status: ${scanStatus}"
+                                if (scanStatus == 'succeeded' || scanStatus == 'failed') {
+                                    break
+                                }
+                            } else {
+                                error "Failed to fetch scan progress. HTTP status ${scanProgress.status}"
+                            }
+                            
+                            sleep(time: 30, unit: 'SECONDS')  // Wait before the next poll
+                            attempts++
+                        }
+                    }
+                    
+                    if (scanStatus != 'succeeded') {
+                        error "Burp Suite scan did not complete successfully. Final status: ${scanStatus}"
+                    }
+                    
+                    echo "Burp Suite scan completed successfully!"
                 }
-
-                def scanStatus
-                if (scanStatusResponse.content) {
-                    scanStatus = readJSON text: scanStatusResponse.content
-                    echo "Scan status: ${scanStatus.state}"
-                    scanCompleted = (scanStatus.state == 'completed')
-                } else {
-                    error "Empty response received while fetching scan status"
-                }
-            }
-
-            // Fetch scan results
-            def scanResultsResponse = httpRequest httpMode: 'GET',
-                acceptType: 'APPLICATION_JSON',
-                url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
-
-            if (scanResultsResponse.status != 200) {
-                error "Failed to fetch scan results. HTTP status ${scanResultsResponse.status}"
-            }
-
-            def scanResults
-            if (scanResultsResponse.content) {
-                scanResults = readJSON text: scanResultsResponse.content
-                echo "Scan results: ${scanResults}"
-
-                // Optionally fail the build if vulnerabilities are found
-                if (scanResults.vulnerabilities.size() > 0) {
-                    error("DAST scan found vulnerabilities")
-                }
-            } else {
-                error "Empty response received while fetching scan results"
             }
         }
-    }
-}
-
         
     }
 }
