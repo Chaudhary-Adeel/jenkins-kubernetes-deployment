@@ -14,10 +14,10 @@ pipeline {
             steps {
                 script {
                     // Authenticate Snyk
-                    bat 'snyk auth %SNYK_TOKEN%'
+                    bat "snyk auth %SNYK_TOKEN%"
                     
                     // Perform SAST and Secrets Scanning using Snyk
-                    bat 'snyk code test --severity-threshold=high || exit 0'
+                    bat "snyk code test --severity-threshold=high || exit 0"
                 }
             }
         }
@@ -68,66 +68,60 @@ pipeline {
         stage('DAST Scanning') {
             steps {
                 script {
-                    def scanPayload = [
-                        urls: ["http://localhost:3000/"],  // Replace with the URLs you want to scan
-                    ]
-                    def jsonPayload = new groovy.json.JsonOutput().toJson(scanPayload)
-                    echo "Request Payload:: --> ${jsonPayload}"
-                    
-                    def scanResponse = httpRequest(
-                        acceptType: 'APPLICATION_JSON',
-                        contentType: 'APPLICATION_JSON',
-                        httpMode: 'POST',
-                        requestBody: jsonPayload,
-                        url: "${env.BURP_BASE_URL}/scan"
-                    )
-                    
-                    if (scanResponse.status != 201) {
-                        error "Failed to trigger Burp Suite scan. HTTP status ${scanResponse.status}"
-                    }
-                    
-                    def scanLocation = scanResponse.getResponseHeaders().find { it.key == 'Location' }?.value
-                    if (!scanLocation) {
-                        error "No 'Location' header found in the response"
-                    }
-                    
-                    def taskId = scanLocation.tokenize('/').last()
-                    echo "Scan successfully started. Task ID: ${taskId}"
-                    
-                    // Polling to check scan status
-                    def scanStatus = 'initializing'
-                    timeout(time: 30, unit: 'MINUTES') {
-                        def maxAttempts = 60  // Example: Poll for up to 30 minutes with 30-second interval
-                        def attempts = 0
-                        
-                        while (scanStatus != 'succeeded' && scanStatus != 'failed' && attempts < maxAttempts) {
-                            def scanProgress = httpRequest(
-                                acceptType: 'APPLICATION_JSON',
-                                contentType: 'APPLICATION_JSON',
-                                httpMode: 'GET',
-                                url: "${env.BURP_BASE_URL}/scan/${taskId}"
-                            )
-                            
-                            if (scanProgress.status == 200) {
-                                scanStatus = scanProgress.data.scan_status
-                                echo "Scan Status: ${scanStatus}"
-                                if (scanStatus == 'succeeded' || scanStatus == 'failed') {
-                                    break
-                                }
-                            } else {
-                                error "Failed to fetch scan progress. HTTP status ${scanProgress.status}"
-                            }
-                            
-                            sleep(time: 30, unit: 'SECONDS')  // Wait before the next poll
-                            attempts++
-                        }
-                    }
-                    
-                    if (scanStatus != 'succeeded') {
-                        error "Burp Suite scan did not complete successfully. Final status: ${scanStatus}"
-                    }
-                    
-                    echo "Burp Suite scan completed successfully!"
+                    // Python script to perform DAST scanning
+                    def pythonScript = """
+import requests
+import json
+import time
+
+scan_payload = {{
+    'urls': ['http://localhost:3000/']
+}}
+
+headers = {{
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+}}
+
+# Perform HTTP POST request to initiate the scan
+response = requests.post('${env.BURP_BASE_URL}/scan', headers=headers, json=scan_payload)
+
+if response.status_code != 201:
+    raise Exception('Failed to trigger Burp Suite scan. HTTP status %s' % response.status_code)
+
+# Extract task ID from response headers
+task_id = response.headers.get('Location', '').split('/')[-1]
+
+print('Scan successfully started. Task ID: %s' % task_id)
+
+# Polling to check scan status
+scan_status = 'initializing'
+max_attempts = 60
+attempts = 0
+
+while scan_status not in ['succeeded', 'failed'] and attempts < max_attempts:
+    time.sleep(30)
+    progress_response = requests.get('${env.BURP_BASE_URL}/scan/%s' % task_id, headers=headers)
+    
+    if progress_response.status_code == 200:
+        scan_status = progress_response.json().get('scan_status')
+        print('Scan Status: %s' % scan_status)
+    else:
+        raise Exception('Failed to fetch scan progress. HTTP status %s' % progress_response.status_code)
+    
+    attempts += 1
+
+if scan_status != 'succeeded':
+    raise Exception('Burp Suite scan did not complete successfully. Final status: %s' % scan_status)
+
+print('Burp Suite scan completed successfully!')
+"""
+
+                    // Write the Python script to a temporary file
+                    def scriptFile = writeFile(file: 'dast_scan.py', text: pythonScript)
+
+                    // Execute the Python script using python
+                    bat "python ${scriptFile}"
                 }
             }
         }
