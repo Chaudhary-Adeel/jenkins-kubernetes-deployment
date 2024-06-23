@@ -69,61 +69,81 @@ pipeline {
                 }
             }
         }
+
         stage('DAST Scanning') {
-            steps {
-                script {
-                    // Trigger Burp Suite scan with simplified payload
-                    def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
-                        acceptType: 'APPLICATION_JSON',
-                        contentType: 'APPLICATION_JSON',
-                        url: 'http://127.0.0.1:1337/v0.1/scan',
-                        requestBody: '{"urls": ["http://localhost:3000/"]}'
+    steps {
+        script {
+            // Trigger Burp Suite scan with simplified payload
+            def burpSuiteScanResponse = httpRequest httpMode: 'POST', 
+                acceptType: 'APPLICATION_JSON',
+                contentType: 'APPLICATION_JSON',
+                url: 'http://127.0.0.1:1337/v0.1/scan',
+                requestBody: '{"urls": ["http://localhost:3000/"]}'
 
-                    def scanResponse
-                    def scanId
-                    def scanCompleted = false
+            if (burpSuiteScanResponse.status != 200) {
+                error "Failed to trigger Burp Suite scan. HTTP status ${burpSuiteScanResponse.status}"
+            }
 
-                    // Parse the response to extract scan ID
-                    script {
-                        scanResponse = new groovy.json.JsonSlurper().parseText(burpSuiteScanResponse.content)
-                        scanId = scanResponse.id
-                        echo "Burp Suite Scan initiated with ID: ${scanId}"
-                    }
+            def scanResponse
+            def scanId
+            def scanCompleted = false
 
-                    // Poll for scan completion
-                    while (!scanCompleted) {
-                        sleep(time: 60, unit: 'SECONDS') // Wait for 1 minute before polling again
+            // Parse the response to extract scan ID
+            if (burpSuiteScanResponse.content) {
+                scanResponse = new groovy.json.JsonSlurper().parseText(burpSuiteScanResponse.content)
+                scanId = scanResponse.id
+                echo "Burp Suite Scan initiated with ID: ${scanId}"
+            } else {
+                error "Empty response received from Burp Suite scan API"
+            }
 
-                        def scanStatusResponse = httpRequest httpMode: 'GET', 
-                            acceptType: 'APPLICATION_JSON',
-                            url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
+            // Poll for scan completion
+            while (!scanCompleted) {
+                sleep(time: 60, unit: 'SECONDS') // Wait for 1 minute before polling again
 
-                        def scanStatus
-                        script {
-                            scanStatus = new groovy.json.JsonSlurper().parseText(scanStatusResponse.content)
-                            echo "Scan status: ${scanStatus.state}"
-                            scanCompleted = (scanStatus.state == 'completed')
-                        }
-                    }
+                def scanStatusResponse = httpRequest httpMode: 'GET', 
+                    acceptType: 'APPLICATION_JSON',
+                    url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
 
-                    // Fetch scan results
-                    def scanResultsResponse = httpRequest httpMode: 'GET',
-                        acceptType: 'APPLICATION_JSON',
-                        url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
+                if (scanStatusResponse.status != 200) {
+                    error "Failed to fetch scan status. HTTP status ${scanStatusResponse.status}"
+                }
 
-                    def scanResults
-                    script {
-                        scanResults = new groovy.json.JsonSlurper().parseText(scanResultsResponse.content)
-                        echo "Scan results: ${scanResults}"
-
-                        // Optionally fail the build if vulnerabilities are found
-                        if (scanResults.vulnerabilities.size() > 0) {
-                            error("DAST scan found vulnerabilities")
-                        }
-                    }
+                def scanStatus
+                if (scanStatusResponse.content) {
+                    scanStatus = new groovy.json.JsonSlurper().parseText(scanStatusResponse.content)
+                    echo "Scan status: ${scanStatus.state}"
+                    scanCompleted = (scanStatus.state == 'completed')
+                } else {
+                    error "Empty response received while fetching scan status"
                 }
             }
+
+            // Fetch scan results
+            def scanResultsResponse = httpRequest httpMode: 'GET',
+                acceptType: 'APPLICATION_JSON',
+                url: "http://127.0.0.1:1337/v0.1/scan/${scanId}/report"
+
+            if (scanResultsResponse.status != 200) {
+                error "Failed to fetch scan results. HTTP status ${scanResultsResponse.status}"
+            }
+
+            def scanResults
+            if (scanResultsResponse.content) {
+                scanResults = new groovy.json.JsonSlurper().parseText(scanResultsResponse.content)
+                echo "Scan results: ${scanResults}"
+
+                // Optionally fail the build if vulnerabilities are found
+                if (scanResults.vulnerabilities.size() > 0) {
+                    error("DAST scan found vulnerabilities")
+                }
+            } else {
+                error "Empty response received while fetching scan results"
+            }
         }
+    }
+}
+
         
     }
 }
