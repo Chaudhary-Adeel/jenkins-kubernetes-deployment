@@ -99,7 +99,7 @@ pipeline {
 
                         def scanStatusResponse = httpRequest httpMode: 'GET', 
                             acceptType: 'APPLICATION_JSON',
-                            url: "http://127.0.0.1:1337/v0.1/scans/${scanId}"
+                            url: "http://127.0.0.1:1337/v0.1/scan/${scanId}"
 
                         def scanStatus = readJSON text: scanStatusResponse.content
                         echo "Scan status: ${scanStatus.state}"
